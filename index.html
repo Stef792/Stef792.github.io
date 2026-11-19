@@ -490,6 +490,7 @@ footer a{color:#fff}
             <label for="omschrijving">Omschrijving</label>
             <textarea id="omschrijving" name="omschrijving" placeholder="Bijvoorbeeld: badkamer renoveren, 6 stopcontacten en 3 lichtpunten, nieuwe kring voor de wasmachine." required></textarea>
           </div>
+          <input type="checkbox" name="botcheck" id="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true" style="display:none">
           <p id="form-status" role="status" aria-live="polite"></p>
           <div class="form-foot">
             <small>Uw gegevens worden enkel gebruikt om uw aanvraag te beantwoorden.</small>
@@ -534,14 +535,15 @@ footer a{color:#fff}
 </footer>
 
 <script>
-/* Vul hier je Formspree-adres in (bv. https://formspree.io/f/abcdwxyz) zodra de site online staat.
-   Zolang dit leeg is, wordt er niets verzonden en ziet de bezoeker een nette melding. */
-const FORM_ENDPOINT = "";
+/* Offerteformulier via Web3Forms: aanvragen komen binnen op power@sninfrasolutions.be */
+const FORM_ENDPOINT = "https://api.web3forms.com/submit";
+const ACCESS_KEY = "dadb003b-fc28-48ef-94f0-7b25d0167b8a";
 
 document.getElementById("jaar").textContent = new Date().getFullYear();
 
 const form = document.getElementById("quote-form");
 const statusEl = document.getElementById("form-status");
+const submitBtn = form.querySelector('button[type="submit"]');
 
 function showStatus(type, text){
   statusEl.className = type;
@@ -550,6 +552,7 @@ function showStatus(type, text){
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (form.botcheck && form.botcheck.checked) return;
   const missing = [...form.querySelectorAll("[required]")].filter(el => !el.value.trim());
   const email = form.email.value.trim();
   if (missing.length){
@@ -562,17 +565,24 @@ form.addEventListener("submit", async (e) => {
     form.email.focus();
     return;
   }
-  if (!FORM_ENDPOINT){
-    showStatus("warn", "Het formulier is nog niet gekoppeld, uw aanvraag is niet verzonden. Mail of bel ons gerust rechtstreeks.");
-    return;
-  }
+  const data = new FormData(form);
+  data.delete("botcheck");
+  data.append("access_key", ACCESS_KEY);
+  data.append("subject", "Offerteaanvraag " + form.type.value + " | " + form.naam.value.trim() + ", " + form.gemeente.value.trim());
+  data.append("from_name", "Website SN PowerSolutions");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Bezig met versturen...";
   try{
-    const res = await fetch(FORM_ENDPOINT, {method:"POST", body:new FormData(form), headers:{Accept:"application/json"}});
-    if (!res.ok) throw new Error();
+    const res = await fetch(FORM_ENDPOINT, {method:"POST", body:data, headers:{Accept:"application/json"}});
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) throw new Error();
     form.reset();
     showStatus("ok", "Bedankt, uw aanvraag is goed ontvangen. U hoort binnen twee werkdagen van ons.");
   }catch{
-    showStatus("warn", "Versturen lukte niet. Probeer het later opnieuw, of mail ons rechtstreeks.");
+    showStatus("warn", "Versturen lukte niet. Probeer het later opnieuw, of bel ons op 0456 98 28 15.");
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Aanvraag versturen";
   }
 });
 </script>
